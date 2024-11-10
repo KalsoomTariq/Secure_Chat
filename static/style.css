@@ -5,7 +5,7 @@ body {
     align-items: center;
     height: 100vh;
     margin: 0;
-    background-color: #f0f0f0;
+    background-color: paleturquoise;
 }
 
 .container {
@@ -16,6 +16,25 @@ body {
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
+.heading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.button {
+    padding: 10px 20px;
+    border-radius: 4px;
+    background-color: paleturquoise;
+    color: black;
+    cursor: pointer;
+}
+
+.button:hover { 
+    background-color: black;
+    color: paleturquoise;
+}
+
 form {
     display: flex;
     flex-direction: column;
@@ -23,4 +42,10 @@ form {
 
 label, input, button {
     margin: 8px 0;
+}
+
+.flash-messages {
+    list-style-type: none;
+    font-weight: bold;
+    color: blueviolet;
 }

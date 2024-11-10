@@ -3,6 +3,7 @@ import random
 import hashlib
 import csv
 import socket
+import threading
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
@@ -34,7 +35,9 @@ def store_credentials(email, username, password):
 
     # Generate salt and hash password
     salt = os.urandom(4)  # 32 bits salt
-    salted_password = salt + password.encode()
+    salted_password = password.encode() + salt
+    print("Password: ", password)
+    print("Salted Password: ", salted_password)
     hashed_password = hashlib.sha256(salted_password).hexdigest()
 
     # Store credentials in creds.csv
@@ -44,37 +47,76 @@ def store_credentials(email, username, password):
     
     return True, "Registration successful!"
 
+def verify_credentials(username, password):
+    with open('creds.csv', mode='r') as file:
+        csv_reader = csv.reader(file)
+        for row in csv_reader:
+            stored_username, stored_hash, stored_salt = row[1], row[2], bytes.fromhex(row[3])
+            if stored_username == username:
+                hashed_input_password = hashlib.sha256(password.encode() + stored_salt).hexdigest()
+                return hashed_input_password == stored_hash
+    return False
+
+# Handle individual client connections
+def handle_client(client_socket):
+    try:
+        # Diffie-Hellman key exchange
+        client_public_key = int(client_socket.recv(1024).decode())
+        client_socket.sendall(str(server_public_key).encode())
+
+        # Compute shared secret Kab
+        Kab = pow(client_public_key, server_private_key, P)
+        shared_key = hashlib.sha256(str(Kab).encode()).digest()[:16]  # 128-bit AES key
+
+        # Receive the action (registration or login)
+        action = client_socket.recv(1024).decode()
+
+        # Registration process
+        if action == 'register':
+            data = client_socket.recv(4096).split(b'||')
+            encrypted_email, encrypted_username, encrypted_password = data
+
+            # Decrypt the credentials
+            email = decrypt_data(encrypted_email, shared_key)
+            username = decrypt_data(encrypted_username, shared_key)
+            password = decrypt_data(encrypted_password, shared_key)
+
+            # Store credentials and check username uniqueness
+            success, message = store_credentials(email, username, password)
+            client_socket.sendall(message.encode())
+            print(message)
+
+        # Login process
+        elif action == 'login':
+            data = client_socket.recv(4096).split(b'||')
+            encrypted_username, encrypted_password = data
+
+            # Decrypt the credentials
+            username = decrypt_data(encrypted_username, shared_key)
+            password = decrypt_data(encrypted_password, shared_key)
+
+            # Verify credentials
+            if verify_credentials(username, password):
+                message = "Login successful! Welcome to the chat system."
+            else:
+                message = "Error: Login failed. Invalid username or password."
+            
+            client_socket.sendall(message.encode())
+            print(message)
+
+    finally:
+        client_socket.close()
+
 # Server socket setup
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind(('localhost', 5000))
 server_socket.listen(5)
 print("Server is listening for connections...")
 
-# Listen for client connections
+# Accept multiple client connections
 while True:
     client_socket, client_address = server_socket.accept()
     print(f"Connected by {client_address}")
-
-    # Diffie-Hellman key exchange
-    client_public_key = int(client_socket.recv(1024).decode())
-    client_socket.sendall(str(server_public_key).encode())
-
-    # Compute shared secret Kab
-    Kab = pow(client_public_key, server_private_key, P)
-    shared_key = hashlib.sha256(str(Kab).encode()).digest()[:16]  # 128-bit AES key
-
-    # Receive encrypted credentials
-    data = client_socket.recv(4096).split(b'||')
-    encrypted_email, encrypted_username, encrypted_password = data
-
-    # Decrypt the credentials
-    email = decrypt_data(encrypted_email, shared_key)
-    username = decrypt_data(encrypted_username, shared_key)
-    password = decrypt_data(encrypted_password, shared_key)
-
-    # Store credentials and check username uniqueness
-    success, message = store_credentials(email, username, password)
-    client_socket.sendall(message.encode())
-    print(message)
-
-    client_socket.close()
+    # Start a new thread for each client
+    client_thread = threading.Thread(target=handle_client, args=(client_socket,))
+    client_thread.start()
