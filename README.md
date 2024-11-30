@@ -1,10 +1,6 @@
 ---
 # **Information Security: A Secure Chat App**
 ---
-### Name: Kalsoom Tariq
-### Roll no: 21I-2487
-### Section: CS-Z
----
 
 ### Description
 A secure client-server chat application built with python and Flask
