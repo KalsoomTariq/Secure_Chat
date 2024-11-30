@@ -1,3 +1,17 @@
+
+'''
+*****************************************************************************
+*****************************************************************************
+
+Name: Kalsoom Tariq
+Roll no: I21-2487
+Section: CS-Z
+
+*****************************************************************************
+*****************************************************************************
+
+'''
+
 import os
 import random
 import hashlib
@@ -8,12 +22,15 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
 # Diffie-Hellman public parameters
-P = 23  # Example prime, replace with a large secure prime for production
-G = 5   # Generator
+P = 23
+G = 5
 
 # Server's private and public key generation
 server_private_key = random.randint(1, P - 2)
 server_public_key = pow(G, server_private_key, P)
+
+# Global variables
+logged_user = None
 
 # AES encryption/decryption functions
 def decrypt_data(encrypted_data, key):
@@ -21,6 +38,13 @@ def decrypt_data(encrypted_data, key):
     ciphertext = encrypted_data[16:]
     cipher = AES.new(key, AES.MODE_CBC, iv)
     return unpad(cipher.decrypt(ciphertext), AES.block_size).decode()
+
+def encrypt_data(data, key):
+    cipher = AES.new(key, AES.MODE_CBC)
+    iv = cipher.iv
+    ciphertext = cipher.encrypt(pad(data.encode(), AES.block_size))
+    return iv + ciphertext
+
 
 # Check username uniqueness and store credentials
 def store_credentials(email, username, password):
@@ -34,7 +58,7 @@ def store_credentials(email, username, password):
         return False, "Error: Username already exists. Please choose another."
 
     # Generate salt and hash password
-    salt = os.urandom(4)  # 32 bits salt
+    salt = os.urandom(4)
     salted_password = password.encode() + salt
     print("Password: ", password)
     print("Salted Password: ", salted_password)
@@ -59,6 +83,7 @@ def verify_credentials(username, password):
 
 # Handle individual client connections
 def handle_client(client_socket):
+    global logged_user
     try:
         # Diffie-Hellman key exchange
         client_public_key = int(client_socket.recv(1024).decode())
@@ -66,7 +91,7 @@ def handle_client(client_socket):
 
         # Compute shared secret Kab
         Kab = pow(client_public_key, server_private_key, P)
-        shared_key = hashlib.sha256(str(Kab).encode()).digest()[:16]  # 128-bit AES key
+        shared_key = hashlib.sha256(str(Kab).encode()).digest()[:16]
 
         # Receive the action (registration or login)
         action = client_socket.recv(1024).decode()
@@ -98,11 +123,44 @@ def handle_client(client_socket):
             # Verify credentials
             if verify_credentials(username, password):
                 message = "Login successful! Welcome to the chat system."
+                logged_user = username
             else:
                 message = "Error: Login failed. Invalid username or password."
             
             client_socket.sendall(message.encode())
             print(message)
+
+        if logged_user:
+            # Establish new creds
+            chat_server_private_key = random.randint(1, P - 2)
+            chat_server_public_key = pow(G, chat_server_private_key, P)
+
+            chat_client_public_key = int(client_socket.recv(1024).decode())
+            client_socket.sendall(str(chat_server_public_key).encode())
+
+            # Compute shared secret Kab
+            Kab = pow(chat_client_public_key, chat_server_private_key, P)
+            chat_key = hashlib.sha256(f'{logged_user}{Kab}'.encode()).digest()[:16]
+
+            # Start Chatting...
+            while True:
+                encrypted_message = client_socket.recv(4096)
+                if not encrypted_message:
+                    break
+                message = decrypt_data(encrypted_message, chat_key)
+                print(f"Client: {message}")
+
+                if message.lower() == "bye":
+                    response = "Session ended."
+                    encrypted_response = encrypt_data(response, chat_key)
+                    client_socket.sendall(encrypted_response)
+                    logged_user = None
+                    break
+                response = None
+                response = input('Server: ')
+                encrypted_response = encrypt_data(response, chat_key)
+                client_socket.sendall(encrypted_response)
+                print("Response sent.", response)
 
     finally:
         client_socket.close()

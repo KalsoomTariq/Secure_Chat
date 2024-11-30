@@ -21,3 +21,11 @@ Make sure that you have Python 3 Installed in your system
 
 3. Install the dependencies
 `pip install -r requirements.txt`
+
+4. Create a 'creds.csv' file.
+
+5. Run server using command
+`python server.py`
+
+5. Run client using command, where port can be specified
+`python client.py [port]`

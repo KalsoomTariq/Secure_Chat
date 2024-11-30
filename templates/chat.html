@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="heading">
+            <h2>Secure Chat</h2>
+        </div>
+        <div id="chat-log"></div>
+    </div>
+    <form id="chat-form">
+        <input type="text" id="message" placeholder="Type your message">
+        <button type="submit">Send</button>
+    </form>
+    <script>
+        document.getElementById("chat-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const message = document.getElementById("message").value;
+            const response = await fetch("/send_message", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: message })
+            });
+            const result = await response.json();
+
+            if (result.redirect) {
+                // Redirect to the login page
+                window.location.href = result.redirect;
+            } else {
+                document.getElementById("chat-log").innerHTML += "<p style='color:blue;font-size:large'>" + result.request + "</p>";
+                document.getElementById("chat-log").innerHTML += "<p style='color:green;font-size:large';font-weight:bold;>" + result.response + "</p>";
+            }
+
+            document.getElementById("message").value = "";
+        });
+    </script>
+</body>
+</html>
