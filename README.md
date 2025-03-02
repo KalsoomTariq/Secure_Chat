@@ -2,6 +2,9 @@
 # **Information Security: A Secure Chat App**
 ---
 
+### Documentatation
+[View the Documentation with Screenshots (PDF)](docs/i212487-KalsoomTariq-TestReport-A02.pdf)
+
 ### Description
 A secure client-server chat application built with python and Flask
 
